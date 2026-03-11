@@ -21,7 +21,9 @@ def handle(msg: str, fn_context: func.Context):
 
     # Il messaggio arriva da Event Grid via Service Bus: contiene url e subject del blob
     event_data = json.loads(msg)
-    blob_url = event_data.get("url", "")
+    logger.info(f"Queue trigger - BlobCreated event, message: {json.dumps(event_data)}")
+    data = event_data.get("data", {})
+    blob_url = data.get("url", "")
     subject = event_data.get("subject", "")
     logger.info(f"Queue trigger - BlobCreated event, subject: {subject}")
 
