@@ -1,8 +1,10 @@
-import azure.functions as func
 import logging
+import azure.functions as func
+
+logger = logging.getLogger(__name__)
 
 
 def handle(myblob: func.InputStream):
-    logging.info(f"Blob trigger - Name: {myblob.name}, Size: {myblob.length} bytes")
+    logger.info(f"Blob trigger - Name: {myblob.name}, Size: {myblob.length} bytes")
     content = myblob.read().decode("utf-8")
-    logging.info(f"Blob content:\n{content}")
+    logger.info(f"Blob content:\n{content}")

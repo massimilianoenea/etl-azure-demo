@@ -1,9 +1,7 @@
+import logging
 import azure.functions as func
-from azure.monitor.opentelemetry import configure_azure_monitor
 import blob_handler
 import eventgrid_handler
-
-configure_azure_monitor()
 
 app = func.FunctionApp()
 
