@@ -1,4 +1,5 @@
 import logging
+
 import azure.functions as func
 
 logger = logging.getLogger(__name__)
