@@ -39,10 +39,10 @@ def handle(msg: str, fn_context: func.Context):
     # Span parent che mantiene il trace context per tutti gli step.
     # Senza questo wrapper, gli span figli sarebbero orphaned (trace ID diverso)
     # e inject_context() propagherebbe un traceparent scollegato dalla trace originale.
-    with tracer.start_as_current_span("queue-blob-processor", context=parent_ctx, attributes={
-        "blob.container": container_name,
-        "blob.name": blob_name,
-    }):
+    with tracer.start_as_current_span("queue-blob-processor", context=parent_ctx) as parentspan:
+        parentspan.set_attribute("blob.container", container_name)
+        parentspan.set_attribute("blob.name", blob_name)
+
         # Step 1: Scarica il contenuto del blob dallo storage
         with tracer.start_as_current_span("download-blob") as span:
             content = download_blob(conn_str, container_name, blob_name)
@@ -60,10 +60,10 @@ def handle(msg: str, fn_context: func.Context):
 
         # Step 3: Inoltra il contenuto filtrato alla coda "etl-function-queue"
         # inject_context() propaga il traceparent nelle application_properties del messaggio
-        with tracer.start_as_current_span("send-to-etl-function-queue", attributes={
-            "servicebus.queue": "etl-function-queue",
-            "blob.name": blob_name,
-        }):
+        with tracer.start_as_current_span("send-to-etl-function-queue") as parentspan:
+            parentspan.set_attribute("servicebus.queue", "etl-function-queue")
+            parentspan.set_attribute("blob.name", blob_name)
+
             carrier = inject_context()
             logger.info(f"Propagating trace context: {carrier}")
 

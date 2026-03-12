@@ -6,6 +6,10 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace, context
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
+logger = logging.getLogger("etl-processor-aca")
+tracer = trace.get_tracer("etl-processor-aca")
+propagator = TraceContextTextMapPropagator()
+
 # configure_azure_monitor DEVE essere chiamato PRIMA di importare le librerie Azure SDK,
 # altrimenti l'auto-instrumentation non si aggancia
 configure_azure_monitor(logger_name="etl-processor-aca")
@@ -15,10 +19,6 @@ from azure.storage.blob import BlobServiceClient
 
 # Solo i messaggi che iniziano con questo prefisso vengono processati
 REQUIRED_PREFIX = "meetup"
-
-logger = logging.getLogger("etl-processor-aca")
-tracer = trace.get_tracer("etl-processor-aca")
-propagator = TraceContextTextMapPropagator()
 
 def main():
     sb_conn_str = os.environ["SERVICE_BUS_CONNECTION_STRING"]
@@ -97,7 +97,8 @@ def upload_blob(connection_string: str, container: str, blob_name: str, data: st
 
 def process_message(msg_body: str, parent_ctx: context.Context, storage_conn_str: str) -> None:
     """Pipeline completa: valida -> trasforma -> salva su blob storage."""
-    with tracer.start_as_current_span("process-etl-message", context=parent_ctx):
+    with tracer.start_as_current_span("process-etl-message", context=parent_ctx) as parentspan:
+        parentspan.set_attribute("msg_body", msg_body)
         body = json.loads(msg_body)
         content = body.get("content", "")
         source_blob_name = body.get("source_blob_name", "unknown")
@@ -110,21 +111,19 @@ def process_message(msg_body: str, parent_ctx: context.Context, storage_conn_str
             logger.info("Content validation passed")
 
         # Step 2: Uppercase + numeri di riga
-        with tracer.start_as_current_span("transform-content", attributes={
-            "blob.name": source_blob_name,
-            "content.lines": len(content.splitlines()),
-        }):
+        with tracer.start_as_current_span("transform-content") as span:
+            span.set_attribute("blob.name", source_blob_name)
+            span.set_attribute("content.lines", len(content.splitlines()))
             transformed = transform_content(content)
             logger.info(f"Transformed {len(content.splitlines())} lines")
 
         # Step 3: Salva il risultato nel container "etl-output"
         output_blob_name = os.path.splitext(source_blob_name)[0] + "-processed.txt"
 
-        with tracer.start_as_current_span("upload-result", attributes={
-            "blob.container": "etl-output",
-            "blob.name": output_blob_name,
-            "blob.size_bytes": len(transformed.encode("utf-8")),
-        }):
+        with tracer.start_as_current_span("upload-result") as span:
+            span.set_attribute("blob.container", "etl-output")
+            span.set_attribute("blob.name", output_blob_name)
+            span.set_attribute("blob.size_bytes", len(transformed.encode("utf-8")))
             upload_blob(storage_conn_str, "etl-output", output_blob_name, transformed)
 
 
