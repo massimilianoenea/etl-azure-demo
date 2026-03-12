@@ -36,41 +36,45 @@ def handle(msg: str, fn_context: func.Context):
 
     container_name, blob_name = parse_blob_url(blob_url)
 
-    # Step 1: Scarica il contenuto del blob dallo storage
-    with tracer.start_as_current_span("download-blob", context=parent_ctx, attributes={
+    # Span parent che mantiene il trace context per tutti gli step.
+    # Senza questo wrapper, gli span figli sarebbero orphaned (trace ID diverso)
+    # e inject_context() propagherebbe un traceparent scollegato dalla trace originale.
+    with tracer.start_as_current_span("queue-blob-processor", context=parent_ctx, attributes={
         "blob.container": container_name,
         "blob.name": blob_name,
-    }) as span:
-        content = download_blob(conn_str, container_name, blob_name)
-        span.set_attribute("blob.size_bytes", len(content))
-
-    # Step 2: Rimuovi le righe che contengono solo numeri
-    with tracer.start_as_current_span("filter-numeric-lines") as span:
-        original_lines = content.splitlines()
-        filtered_lines = [line for line in original_lines if not line.strip().isdigit()]
-        removed = len(original_lines) - len(filtered_lines)
-        content = "\n".join(filtered_lines)
-        span.set_attribute("lines.original", len(original_lines))
-        span.set_attribute("lines.removed", removed)
-        logger.info(f"Filtered out {removed} numeric-only lines")
-
-    # Step 3: Inoltra il contenuto filtrato alla coda "etl-function-queue"
-    # inject_context() propaga il traceparent nelle application_properties del messaggio
-    with tracer.start_as_current_span("send-to-etl-function-queue", attributes={
-        "servicebus.queue": "etl-function-queue",
-        "blob.name": blob_name,
     }):
-        carrier = inject_context()
-        logger.info(f"Propagating trace context: {carrier}")
+        # Step 1: Scarica il contenuto del blob dallo storage
+        with tracer.start_as_current_span("download-blob") as span:
+            content = download_blob(conn_str, container_name, blob_name)
+            span.set_attribute("blob.size_bytes", len(content))
 
-        send_to_queue(
-            connection_string=sb_conn_str,
-            queue_name="etl-function-queue",
-            body={
-                "content": content,
-                "source_blob_name": blob_name,
-                "source_container": container_name,
-            },
-            application_properties=carrier,
-        )
-        logger.info(f"Sent content of {blob_name} to etl-function-queue")
+        # Step 2: Rimuovi le righe che contengono solo numeri
+        with tracer.start_as_current_span("filter-numeric-lines") as span:
+            original_lines = content.splitlines()
+            filtered_lines = [line for line in original_lines if not line.strip().isdigit()]
+            removed = len(original_lines) - len(filtered_lines)
+            content = "\n".join(filtered_lines)
+            span.set_attribute("lines.original", len(original_lines))
+            span.set_attribute("lines.removed", removed)
+            logger.info(f"Filtered out {removed} numeric-only lines")
+
+        # Step 3: Inoltra il contenuto filtrato alla coda "etl-function-queue"
+        # inject_context() propaga il traceparent nelle application_properties del messaggio
+        with tracer.start_as_current_span("send-to-etl-function-queue", attributes={
+            "servicebus.queue": "etl-function-queue",
+            "blob.name": blob_name,
+        }):
+            carrier = inject_context()
+            logger.info(f"Propagating trace context: {carrier}")
+
+            send_to_queue(
+                connection_string=sb_conn_str,
+                queue_name="etl-function-queue",
+                body={
+                    "content": content,
+                    "source_blob_name": blob_name,
+                    "source_container": container_name,
+                },
+                application_properties=carrier,
+            )
+            logger.info(f"Sent content of {blob_name} to etl-function-queue")

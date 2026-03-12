@@ -2,21 +2,23 @@ import json
 import logging
 import os
 
-from azure.servicebus import ServiceBusClient
-from azure.storage.blob import BlobServiceClient
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace, context
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
+# configure_azure_monitor DEVE essere chiamato PRIMA di importare le librerie Azure SDK,
+# altrimenti l'auto-instrumentation non si aggancia
+configure_azure_monitor(logger_name="etl-processor-aca")
+
+from azure.servicebus import ServiceBusClient
+from azure.storage.blob import BlobServiceClient
+
 # Solo i messaggi che iniziano con questo prefisso vengono processati
 REQUIRED_PREFIX = "meetup"
 
-# Configura l'export delle telemetrie verso Application Insights
-configure_azure_monitor(logger_name="etl-processor-aca")
 logger = logging.getLogger("etl-processor-aca")
 tracer = trace.get_tracer("etl-processor-aca")
 propagator = TraceContextTextMapPropagator()
-
 
 def main():
     sb_conn_str = os.environ["SERVICE_BUS_CONNECTION_STRING"]

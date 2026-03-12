@@ -1,8 +1,10 @@
 import logging
 
 import azure.functions as func
-from azure.monitor.opentelemetry import configure_azure_monitor 
+from azure.monitor.opentelemetry import configure_azure_monitor
 
+# configure_azure_monitor DEVE essere chiamato PRIMA di importare i handler,
+# altrimenti l'auto-instrumentation delle librerie Azure SDK non si aggancia
 configure_azure_monitor(logger_name="etl-processor-function")
 
 from handlers import blob_handler, eventgrid_handler, queue_handler
