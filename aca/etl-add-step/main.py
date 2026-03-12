@@ -4,18 +4,16 @@ import os
 
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace, context
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.propagate import extract
+from azure.servicebus import ServiceBusClient
+from azure.storage.blob import BlobServiceClient
 
 logger = logging.getLogger("etl-processor-aca")
 tracer = trace.get_tracer("etl-processor-aca")
-propagator = TraceContextTextMapPropagator()
 
 # configure_azure_monitor DEVE essere chiamato PRIMA di importare le librerie Azure SDK,
 # altrimenti l'auto-instrumentation non si aggancia
 configure_azure_monitor(logger_name="etl-processor-aca")
-
-from azure.servicebus import ServiceBusClient
-from azure.storage.blob import BlobServiceClient
 
 # Solo i messaggi che iniziano con questo prefisso vengono processati
 REQUIRED_PREFIX = "meetup"
@@ -52,16 +50,18 @@ def main():
 def extract_parent_context(application_properties: dict) -> context.Context:
     """Estrae il W3C traceparent dalle application_properties del messaggio Service Bus.
     Questo collega lo span del Container App Job alla trace iniziata dalla Function."""
-    carrier = {}
-    if application_properties:
-        for key in ("traceparent", "tracestate"):
-            if key in application_properties:
-                carrier[key] = application_properties[key]
-    if carrier:
-        logger.info(f"Extracted trace context: {carrier}")
-        return propagator.extract(carrier)
-    logger.info("No trace context found, using current context")
-    return context.get_current()
+    try:
+        # Filtra solo quelli con chiave che inizia per b'tra'
+        filtered = {k.decode(): v.decode() for k, v in application_properties.items() if k.startswith(b'tra')}
+        # Extract message body
+        carrier = {
+            "traceparent": filtered.get("traceparent", ""),
+            "tracestate": filtered.get("tracestate", ""),
+        }
+        return extract(carrier)
+    except Exception as e:
+        logger.error(f"Error extracting trace context: {e}")
+        raise e
 
 
 # ── Validation ───────────────────────────────────────────────────────

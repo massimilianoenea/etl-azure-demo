@@ -60,9 +60,9 @@ def handle(msg: str, fn_context: func.Context):
 
         # Step 3: Inoltra il contenuto filtrato alla coda "etl-function-queue"
         # inject_context() propaga il traceparent nelle application_properties del messaggio
-        with tracer.start_as_current_span("send-to-etl-function-queue") as parentspan:
-            parentspan.set_attribute("servicebus.queue", "etl-function-queue")
-            parentspan.set_attribute("blob.name", blob_name)
+        with tracer.start_as_current_span("send-to-etl-function-queue") as span:
+            span.set_attribute("servicebus.queue", "etl-function-queue")
+            span.set_attribute("blob.name", blob_name)
 
             carrier = inject_context()
             logger.info(f"Propagating trace context: {carrier}")
