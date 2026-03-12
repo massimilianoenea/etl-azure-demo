@@ -2,7 +2,7 @@ import logging
 
 import azure.functions as func
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("etl-processor-function")
 
 
 def handle(myblob: func.InputStream):

@@ -6,7 +6,7 @@ from services.blob_downloader import download_blob
 from services.blob_url_parser import parse_blob_url
 from services.exceptions import ConfigurationError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("etl-processor-function")
 
 
 def handle(event: func.EventGridEvent):

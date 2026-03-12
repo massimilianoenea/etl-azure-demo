@@ -12,9 +12,9 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 REQUIRED_PREFIX = "meetup"
 
 # Configura l'export delle telemetrie verso Application Insights
-configure_azure_monitor()
-logger = logging.getLogger(__name__)
-tracer = trace.get_tracer(__name__)
+configure_azure_monitor(logger_name="etl-processor-aca")
+logger = logging.getLogger("etl-processor-aca")
+tracer = trace.get_tracer("etl-processor-aca")
 propagator = TraceContextTextMapPropagator()
 
 

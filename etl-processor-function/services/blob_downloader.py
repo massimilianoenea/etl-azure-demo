@@ -3,7 +3,7 @@ import logging
 from azure.storage.blob import BlobServiceClient
 from services.exceptions import ConfigurationError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("etl-processor-function")
 
 
 def download_blob(connection_string: str, container_name: str, blob_name: str) -> str:

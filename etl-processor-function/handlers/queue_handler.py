@@ -10,8 +10,8 @@ from services.exceptions import ConfigurationError
 from services.servicebus_sender import send_to_queue
 from services.tracing import extract_context, inject_context
 
-logger = logging.getLogger(__name__)
-tracer = trace.get_tracer(__name__)
+logger = logging.getLogger("etl-processor-function")
+tracer = trace.get_tracer("etl-processor-function")
 
 
 def handle(msg: str, fn_context: func.Context):

@@ -4,7 +4,7 @@ import logging
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from services.exceptions import ConfigurationError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("etl-processor-function")
 
 
 def send_to_queue(
