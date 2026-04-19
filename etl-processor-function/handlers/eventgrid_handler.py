@@ -3,6 +3,7 @@ import os
 
 import azure.functions as func
 from services.blob_downloader import download_blob
+from services.blob_uploader import upload_blob
 from services.blob_url_parser import parse_blob_url
 from services.exceptions import ConfigurationError
 
@@ -25,3 +26,11 @@ def handle(event: func.EventGridEvent):
     container_name, blob_name = parse_blob_url(blob_url)
     content = download_blob(conn_str, container_name, blob_name)
     logger.info(f"Blob content:\n{content}")
+
+    output = (
+        "-----------------------------\n"
+        "QUESTO FILE E' STATO PROCESSATO DAL EVENT_GRID_TRIGGER\n"
+        "-----------------------------\n"
+        f"{content}"
+    )
+    upload_blob(conn_str, "etl-output", f"eventgrid-{blob_name}", output)
