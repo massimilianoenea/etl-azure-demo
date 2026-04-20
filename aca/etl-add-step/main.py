@@ -42,7 +42,23 @@ def main():
                 except ValueError as e:
                     # Messaggio non valido: manda in dead-letter invece di ritentare
                     logger.warning(f"Message aborted: {e}")
+
+                    # Alternativa: receiver.abandon_message(msg)
+                    # - Rilascia il lock del messaggio, che torna immediatamente disponibile in coda.
+                    # - Il delivery count viene incrementato: dopo MaxDeliveryCount tentativi
+                    #   falliti, Service Bus sposta automaticamente il messaggio in DLQ.
+                    # - Utile per errori TRANSIENTI (rete, storage temporaneamente down),
+                    #   non per errori di validazione come questo, dove il retry non cambierà l'esito.
+                    # receiver.abandon_message(msg)
+
                     receiver.dead_letter_message(msg, reason="ValidationFailed", error_description=str(e))
+
+                    # Per far risultare il Container App Job in stato "Failed" invece di "Completed",
+                    # occorre terminare il processo con exit code != 0. Decommentare la riga sotto
+                    # per simulare un'uscita con errore dopo aver mandato il messaggio in DLQ.
+                    # ⚠️ Attenzione: così il job fallisce anche se altri messaggi del batch
+                    # sono stati completati correttamente, e ACA potrebbe ri-schedulare il job.
+                    # raise e
 
 
 # ── Tracing ──────────────────────────────────────────────────────────
